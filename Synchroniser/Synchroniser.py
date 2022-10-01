@@ -26,19 +26,20 @@ class FileManagement():
                 self.completedOuterDirList.append(self.iterationPath)
             else:
                 # the it is some sort of file in that directory
+                itemReplicaPath = self.replicaPath +'/'+str(item)
                 h1 = hashlib.md5()
                 with open(itemPath, 'rb') as f: # Open the file to read it's bytes
                     fb = f.read(self.block_size) # Read from the file. Take in the amount declared above
                     while len(fb) > 0: # While there is still data being read from the file
                         h1.update(fb) # Update the hash
                         fb = f.read(self.block_size) # Read the next block from the file
-                sourceHash = file_hash.hexdigest() # Get the hexadecimal digest of the hash
-                if os.path.exists(itemPath):
+                sourceHash = h1.hexdigest() # Get the hexadecimal digest of the hash
+                if os.path.exists(itemReplicaPath):
                     #file exists check if it needs modification
                     continue
                 else:
                     #file does not exist, copy paste here
-                    itemReplicaPath = self.replicaPath +'/'+str(item)
+                    print('i am here')
                     shutil.copyfile(itemPath, itemReplicaPath)
                 
 
@@ -51,31 +52,7 @@ class FileManagement():
 ###
 
 if __name__ == "__main__":
-    curDir = os.getcwd()
-    completedDirList=[]
-    itemList = os.listdir(curDir+"/source")
-
-    for item in itemList:
-        itemPath = str(curDir) + "/source/" + str(item)
-        print(itemPath)
-        if os.path.isdir(itemPath) == True:
-            ##call the same function again recusion till all you have is files in each dir
-            print ("I am in a directory and I will keep digging deeper")
-        if os.path.isfile(itemPath) == True:
-            print("I am in a file and I should copy this to replica")
-
-            
-
-
-    text1 = b"this is my home"
-    text2 = b"this is my home"
-
-    h1 = hashlib.md5()
-    h2 = hashlib.md5()
-
-    h1.update(text1)
-    h2.update(text2)
-
-    print(h1.hexdigest() == h2.hexdigest())
-
-    #print(curDir)
+    sourceDist = input('Please enter the full path of source folder (where you will store files): ')
+    replicaDist = input('Please enter the full path of replica folder (where you want all data to be replicated): ')
+    a = FileManagement(str(sourceDist),str(replicaDist))
+    a.checkDir('')
