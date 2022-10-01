@@ -1,26 +1,17 @@
 from ast import Str
 import hashlib
 import sched, time
+import shutil
 import os
-
-
-class Digest:
-    
-    def readFileContent(filePath) -> Str:
-        #use the file path to get the file
-        return fileData
-
-    
-    def getDigest(fileData):
-        return fileDigest
 
 class FileManagement():
 
     def __init__(self, sourcePath, replicaPath) -> None:
-        self.completedDirList = []
+        self.completedOuterDirList = []
         self.sourcePath = sourcePath
         self.iterationPath = ''
         self.replicaPath = replicaPath
+        self.block_size = 65536
 
     def checkDir(self, newPath)  -> None:
         if newPath == '':
@@ -32,7 +23,24 @@ class FileManagement():
             itemPath = self.sourcePath + '/' + str(item)
             if os.path.isdir(itemPath) == True:
                 self.iterationPath = itemPath
-                self.checkDir(itemPath)
+                self.completedOuterDirList.append(self.iterationPath)
+            else:
+                # the it is some sort of file in that directory
+                h1 = hashlib.md5()
+                with open(itemPath, 'rb') as f: # Open the file to read it's bytes
+                    fb = f.read(self.block_size) # Read from the file. Take in the amount declared above
+                    while len(fb) > 0: # While there is still data being read from the file
+                        h1.update(fb) # Update the hash
+                        fb = f.read(self.block_size) # Read the next block from the file
+                sourceHash = file_hash.hexdigest() # Get the hexadecimal digest of the hash
+                if os.path.exists(itemPath):
+                    #file exists check if it needs modification
+                    continue
+                else:
+                    #file does not exist, copy paste here
+                    itemReplicaPath = self.replicaPath +'/'+str(item)
+                    shutil.copyfile(itemPath, itemReplicaPath)
+                
 
 
 
