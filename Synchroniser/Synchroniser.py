@@ -3,8 +3,48 @@ import hashlib
 import sched, time
 import shutil
 import os
+from typing import List
 
-class FileManagement():
+class HashDigest(): # could easily add a new hasing method with out effecting the logic
+    
+    def __init__(self, filePath, blockSize=65536) -> None: #65kb block size set. Increase for large files but affects the memory
+        self.filePath = filePath
+        self.block_size = blockSize
+
+    def generateMD5Hash(self) -> str:
+         h1 = hashlib.md5()
+         with open(self.filePath, 'rb') as f: # Open the file to read it's bytes
+             fb = f.read(self.block_size) # Read from the file. Take in the amount declared above
+             while len(fb) > 0: # While there is still data being read from the file
+                 h1.update(fb) # Update the hash
+                 fb = f.read(self.block_size) # Read the next block from the file
+         fileHash = h1.hexdigest() # Get the hexadecimal digest of the hash
+         return fileHash
+
+class StartUp():
+
+    def __init__(self) -> None:
+        self.freq = ''
+        self.sourcePath = ''
+        self.replicaPath = ''
+        self.logPath = ''
+    
+    def getFreq(self) -> int:
+        return self.freq
+
+    def setFreq(self, freq) -> None:
+        assert (type(freq)==int and freq>0), 'Frequency must be a postive integer'
+
+    def getSourcePath(self) -> str:
+        return self.sourcePath
+
+    def getreplicaPath(self) -> str:
+        return self.replicaPath
+
+    def getlogPath(self) -> str:
+        return self.logPath
+
+class SourceToReplicaManagement():
 
     def __init__(self, freq, sourcePath, replicaPath) -> None:
         self.freq = freq
@@ -13,21 +53,17 @@ class FileManagement():
         self.newPath = ''
         self.iterationPath = ''
         self.replicaPath = replicaPath
-        self.block_size = 65536
 
     def fileLevelModification(self, item, itemPath) -> None:
         # the it is some sort of file in that directory
                 itemReplicaPath = self.replicaPath +'/'+str(item)
-                h1 = hashlib.md5()
-                with open(itemPath, 'rb') as f: # Open the file to read it's bytes
-                    fb = f.read(self.block_size) # Read from the file. Take in the amount declared above
-                    while len(fb) > 0: # While there is still data being read from the file
-                        h1.update(fb) # Update the hash
-                        fb = f.read(self.block_size) # Read the next block from the file
-                sourceHash = h1.hexdigest() # Get the hexadecimal digest of the hash
+                sourceFileHash = HashDigest(itemPath).generateMD5Hash()
+
                 if os.path.exists(itemReplicaPath):
                     #file exists check if it needs modification
-                    2+2
+                    replicaFileHash = HashDigest(itemReplicaPath).generateMD5Hash()
+                    if sourceFileHash != replicaFileHash:
+                        shutil.copyfile(itemPath, itemReplicaPath) # duplicated needs to be updated                  
                 else:
                     #file does not exist, copy paste here
                     print('i am here')
@@ -38,14 +74,10 @@ class FileManagement():
         print('just ran again')
         if self.newPath == '':
             itemsList = os.listdir(self.sourcePath)
-            for item in itemsList:
-                if item.startswith('~$'):
-                    itemsList.remove(item)
+            itemsList = self.ignoreTempFiles(itemsList)
         else:
             itemsList = os.listdir(self.iterationPath)
-            for item in itemsList:
-                if item.startswith('~$'):
-                    itemsList.remove(item)
+            itemsList = self.ignoreTempFiles(itemsList)
 
         for item in itemsList:
             itemPath = self.sourcePath + '/' + str(item)
@@ -57,25 +89,25 @@ class FileManagement():
                 # a file
                 self.fileLevelModification(item, itemPath)
         s.enter(self.freq, 1, self.checkDir)
+    
+    def ignoreTempFiles(self, itemsList)->List:
+        for item in itemsList:
+                if item.startswith('~$'):
+                    itemsList.remove(item)
+        return itemsList
 
     def removalProcedure(self)->None:
         # start from replica and see what is different in source
         2+2
                 
-
-
-
-#class Synchroniser(Digest):
-
-#    def __init__(self, sourcePath, replicaPath) -> None:
-#    super().__init__()
-###
-
 if __name__ == "__main__":
-    sourceDist = input('Please enter the full path of source folder (where you will store files): \n')
-    replicaDist = input('Please enter the full path of replica folder (where you want all data to be replicated): \n')
+    sourceDist = input('Enter full path of source folder, where you will store files: \n')
+    replicaDist = input('Enter full path of replica folder, where you want all data to be replicated: \n')
+    freqs = input('Enter the frequency of periodic check (units: seconds): \n')
+    freq = int(freqs)
+
     logging.basicConfig(filename='Logs.log', encoding='utf-8', level=logging.DEBUG)
     s=sched.scheduler(time.time, time.sleep)
-    freq = 60
-    s.enter(freq, 1, FileManagement(freq, str(sourceDist), str(replicaDist)).checkDir)
+  
+    s.enter(freq, 1, SourceToReplicaManagement(freq, sourceDist, replicaDist).checkDir)
     s.run()
