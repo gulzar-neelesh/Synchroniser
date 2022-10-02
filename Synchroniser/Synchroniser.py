@@ -3,7 +3,9 @@ import hashlib
 import sched, time
 import shutil
 import os
+import copy
 from typing import List
+import re
 
 class HashDigest(): # could easily add a new hasing method with out effecting the logic
     
@@ -48,15 +50,18 @@ class SourceToReplicaManagement():
 
     def __init__(self, freq, sourcePath, replicaPath) -> None:
         self.freq = freq
-        self.completedOuterDirList = []
+        self.globaDirList = []
+        self.localDirList = []
         self.sourcePath = sourcePath
         self.newPath = ''
         self.iterationPath = ''
+        self.pathToUseSource = ''
         self.replicaPath = replicaPath
+        self.level = 0
 
     def fileLevelModification(self, item, itemPath) -> None:
         # the it is some sort of file in that directory
-                itemReplicaPath = self.replicaPath +'/'+str(item)
+                itemReplicaPath = os.path.join(self.replicaPath, str(item))
                 sourceFileHash = HashDigest(itemPath).generateMD5Hash()
 
                 if os.path.exists(itemReplicaPath):
@@ -70,25 +75,43 @@ class SourceToReplicaManagement():
                     logging.info('File duplicated \n')
                     shutil.copyfile(itemPath, itemReplicaPath)
 
-    def checkDir(self)  -> None:
+    def checkSource(self)  -> None:
         print('just ran again')
-        if self.newPath == '':
-            itemsList = os.listdir(self.sourcePath)
-            itemsList = self.ignoreTempFiles(itemsList)
+        if self.newPath == '': # very unstable way doing this check, but works
+            self.pathToUseSource = self.sourcePath
         else:
-            itemsList = os.listdir(self.iterationPath)
-            itemsList = self.ignoreTempFiles(itemsList)
+            self.pathToUseSource = self.iterationPath
+        
+        itemsList = os.listdir(self.pathToUseSource)
+        itemsList = self.ignoreTempFiles(itemsList)
 
         for item in itemsList:
-            itemPath = self.sourcePath + '/' + str(item)
+            itemPath = os.path.join(self.pathToUseSource, str(item))
             if os.path.isdir(itemPath) == True:
                 # not a file but a directory
                 self.iterationPath = itemPath
-                self.completedOuterDirList.append(self.iterationPath)
+                self.localDirList.append(self.iterationPath)
             else:
                 # a file
                 self.fileLevelModification(item, itemPath)
-        s.enter(self.freq, 1, self.checkDir)
+        self.globaDirList.append(copy.deepcopy(self.localDirList))
+        self.localDirList.clear()
+        self.beginBFSSearch()
+        s.enter(self.freq, 1, self.checkSource)
+     
+    def beginBFSSearch(self)->None:
+        for thisDir in self.globaDirList[self.level]:
+            dirExtension = ''
+            if str(thisDir).startswith(self.sourcePath):
+                dirExtension = thisDir[len(self.sourcePath)+1:]
+            lReplicaPath = os.path.join(self.replicaPath, thisDir)
+            if os.path.exists(lReplicaPath):
+                # the directory exists check file status and add dir to localDirList
+                pass
+            else:
+                #the directory does not exists. create directory and copy all the contents into it
+                pass
+
     
     def ignoreTempFiles(self, itemsList)->List:
         for item in itemsList:
@@ -101,6 +124,7 @@ class SourceToReplicaManagement():
         2+2
                 
 if __name__ == "__main__":
+    
     sourceDist = input('Enter full path of source folder, where you will store files: \n')
     replicaDist = input('Enter full path of replica folder, where you want all data to be replicated: \n')
     freqs = input('Enter the frequency of periodic check (units: seconds): \n')
@@ -109,5 +133,5 @@ if __name__ == "__main__":
     logging.basicConfig(filename='Logs.log', encoding='utf-8', level=logging.DEBUG)
     s=sched.scheduler(time.time, time.sleep)
   
-    s.enter(freq, 1, SourceToReplicaManagement(freq, sourceDist, replicaDist).checkDir)
+    s.enter(freq, 1, SourceToReplicaManagement(freq, sourceDist, replicaDist).checkSource)
     s.run()
