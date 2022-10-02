@@ -3,9 +3,8 @@ import hashlib
 import sched, time
 import shutil
 import os
-import copy
+import copy # used for creating deep copy of lists only
 from typing import List
-import re
 
 class HashDigest(): # could easily add a new hasing method with out effecting the logic
     
@@ -34,17 +33,59 @@ class StartUp():
     def getFreq(self) -> int:
         return self.freq
 
-    def setFreq(self, freq) -> None:
-        assert (type(freq)==int and freq>0), 'Frequency must be a postive integer'
+    def setFreq(self) -> None:
+        print('\n')
+        freq = input('Enter the frequency of periodic check (units: seconds): \n')
+        flag=0
+        try:
+            int(freq)
+        except:
+            flag = 1
+        while flag == 1:
+            print('\nFrequency must be an integer. Please recheck it')
+            freq = input('Enter the frequency of periodic check (units: seconds): \n')
+            try:
+                int(freq)
+                flag=0
+            except:
+                flag=1
+        self.freq = int(freq)
 
-    def getSourcePath(self) -> str:
-        return self.sourcePath
+    def setSourcePath(self) -> str:
+        sourceDist = input('Enter full path of Source folder, where you will store files: \n')
+        while os.path.exists(sourceDist) == False or os.path.isdir(sourceDist)==False:
+            print('The folder does not exist. Please check the path again')
+            sourceDist = input('Enter full path of Source folder once again: \n')
+        self.sourcePath = sourceDist
 
-    def getreplicaPath(self) -> str:
-        return self.replicaPath
+    def setReplicaPath(self) -> str:
+        print('\n')
+        replicaDist = input('Enter full path of replica folder, where you want all data to be replicated: \n')
+        while os.path.exists(replicaDist) == False or os.path.isdir(replicaDist) ==False:
+            print('The folder does not exist. Please check the path again')
+            replicaDist = input('Enter full path of Replica folder once again: \n')
+        self.replicaPath = replicaDist
+        #print('the replica is: ', self.replicaPath)
 
-    def getlogPath(self) -> str:
-        return self.logPath
+    def setLogPath(self) -> str:
+        print('\n')
+        logDist = input('Enter full path to the location of Log file without the filename extension: \n')
+        while os.path.exists(logDist) == False:
+            print('The folder does not exist. Please check the path again')
+            logDist = input('Enter full path of Log file once again: \n')
+        self.logPath = os.path.join(logDist, 'Logs.log')
+        logging.basicConfig(filename=self.logPath, encoding='utf-8', level=logging.DEBUG)
+        print('Logs.txt created at the desired location')
+
+    def setParams(self) -> None:
+        self.setSourcePath()
+        self.setReplicaPath()
+        self.setLogPath()
+        self.setFreq()
+
+    def getAllParam(self) -> List:
+        #print('in return: ', self.replicaPath)
+        return [self.sourcePath, self.replicaPath, self.freq]
 
 class SourceToReplicaManagement():
 
@@ -80,12 +121,12 @@ class SourceToReplicaManagement():
                         shutil.copyfile(itemPath, itemReplicaPath) # duplicated needs to be updated                  
                 else:
                     #file does not exist, copy paste here
-                    print('i am here')
+                    #print('i am here')
                     logging.info('File duplicated \n')
                     shutil.copyfile(itemPath, itemReplicaPath)
 
     def checkSource(self)  -> None:
-        print('just ran again')
+        print('Monitoring...')
         if self.newPath == '': # very unstable way doing this check, but works (not using this right now anyways)
             self.pathToUseSource = self.sourcePath
         else:
@@ -176,13 +217,9 @@ class SourceToReplicaManagement():
                 
 if __name__ == "__main__":
     
-    sourceDist = input('Enter full path of source folder, where you will store files: \n')
-    replicaDist = input('Enter full path of replica folder, where you want all data to be replicated: \n')
-    freqs = input('Enter the frequency of periodic check (units: seconds): \n')
-    freq = int(freqs)
-
-    logging.basicConfig(filename='Logs.log', encoding='utf-8', level=logging.DEBUG)
+    start = StartUp()
+    start.setParams()
+    [source, replica, freq] = start.getAllParam()
     s=sched.scheduler(time.time, time.sleep)
-  
-    s.enter(freq, 1, SourceToReplicaManagement(freq, sourceDist, replicaDist).checkSource)
+    s.enter(freq, 1, SourceToReplicaManagement(freq, source, replica).checkSource)
     s.run()
