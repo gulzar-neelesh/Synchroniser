@@ -50,18 +50,27 @@ class SourceToReplicaManagement():
 
     def __init__(self, freq, sourcePath, replicaPath) -> None:
         self.freq = freq
-        self.globaDirList = []
-        self.localDirList = []
+        self.globaDirList = [] # rest in the end
+        self.localDirList = [] # reset in the end
         self.sourcePath = sourcePath
+        self.newPath = '' # reset in the end
+        self.iterationPath = '' # reset in the end
+        self.pathToUseSource = '' # reset in the end
+        self.replicaPath = replicaPath
+        self.level = 0 # reset in the end
+        self.mode = 0o666
+
+    def reset(self) -> None:
+        self.level = 0
+        self.globaDirList.clear()
+        self.localDirList.clear()
         self.newPath = ''
         self.iterationPath = ''
         self.pathToUseSource = ''
-        self.replicaPath = replicaPath
-        self.level = 0
 
-    def fileLevelModification(self, item, itemPath) -> None:
+    def fileLevelModification(self, item, itemPath, replicaPath) -> None:
         # the it is some sort of file in that directory
-                itemReplicaPath = os.path.join(self.replicaPath, str(item))
+                itemReplicaPath = os.path.join(replicaPath, str(item))
                 sourceFileHash = HashDigest(itemPath).generateMD5Hash()
 
                 if os.path.exists(itemReplicaPath):
@@ -77,7 +86,7 @@ class SourceToReplicaManagement():
 
     def checkSource(self)  -> None:
         print('just ran again')
-        if self.newPath == '': # very unstable way doing this check, but works
+        if self.newPath == '': # very unstable way doing this check, but works (not using this right now anyways)
             self.pathToUseSource = self.sourcePath
         else:
             self.pathToUseSource = self.iterationPath
@@ -93,35 +102,77 @@ class SourceToReplicaManagement():
                 self.localDirList.append(self.iterationPath)
             else:
                 # a file
-                self.fileLevelModification(item, itemPath)
+                self.fileLevelModification(item, itemPath, self.replicaPath)
+        replicaItemsList = os.listdir(self.replicaPath)
+        replicaItemsList = self.ignoreTempFiles(replicaItemsList)
+        self.removalProcedure(itemsList, replicaItemsList, self.replicaPath)
+        
         self.globaDirList.append(copy.deepcopy(self.localDirList))
         self.localDirList.clear()
-        self.beginBFSSearch()
+        self.beginBFS()
+        self.reset()
         s.enter(self.freq, 1, self.checkSource)
      
-    def beginBFSSearch(self)->None:
+    def beginBFS(self)->None:
         for thisDir in self.globaDirList[self.level]:
             dirExtension = ''
             if str(thisDir).startswith(self.sourcePath):
                 dirExtension = thisDir[len(self.sourcePath)+1:]
-            lReplicaPath = os.path.join(self.replicaPath, thisDir)
+            lReplicaPath = os.path.join(self.replicaPath, dirExtension)
             if os.path.exists(lReplicaPath):
                 # the directory exists check file status and add dir to localDirList
+                # also check if any files or the directory was removed
+                # if so remove that too.
+                self.dirItemsCheck(thisDir, lReplicaPath)                      
+            else:
+                #the directory does not exists. create directory and copy all the items into it
+                os.mkdir(lReplicaPath)
+                self.dirItemsCheck(thisDir, lReplicaPath)
+        if len(self.localDirList) > 0:
+            self.globaDirList.append(copy.deepcopy(self.localDirList))
+        self.localDirList.clear()
+        self.level = self.level+1
+        # print(self.globaDirList[self.level]) # do not unommnet index out of range. termination condition
+        if len(self.globaDirList) == self.level:
+            # bfs exhausted. all braches covered. do nothing END OF SEARCH
+            pass
+        else:
+            self.beginBFS()
+    
+    def dirItemsCheck(self, thisDir, lReplicaPath) -> None:
+        sourceItemsList = os.listdir(thisDir)
+        sourceItemsList = self.ignoreTempFiles(sourceItemsList)
+        for item in sourceItemsList: # check source directory items
+            itemPath = os.path.join(thisDir, item) # create source dir items path
+            if os.path.isfile(itemPath):
+                self.fileLevelModification(item, itemPath, lReplicaPath) # copy items to replica path
+            else:
+                # it is a directory add it to the local dir for next round
+                self.localDirList.append(itemPath)
+        replicaItemsList = os.listdir(lReplicaPath)
+        replicaItemsList = self.ignoreTempFiles(replicaItemsList)  
+        self.removalProcedure(sourceItemsList, replicaItemsList, lReplicaPath)
+                         
+    def removalProcedure(self, sourceItemsList, replicaItemsList, lReplicaPath) -> None:
+        for replicaItem in replicaItemsList:
+            lReplicaItemPath = os.path.join(lReplicaPath, replicaItem)
+            if sourceItemsList.__contains__(replicaItem):
+                # no need to do anything. It is synchronised
                 pass
             else:
-                #the directory does not exists. create directory and copy all the contents into it
-                pass
-
+                # the item has been deleted from the source remove it from here
+                if os.path.isfile(lReplicaItemPath):
+                    # remove the file
+                    os.remove(lReplicaItemPath)
+                else:
+                    # remove the directory
+                    shutil.rmtree(lReplicaItemPath, ignore_errors=True)
     
     def ignoreTempFiles(self, itemsList)->List:
         for item in itemsList:
                 if item.startswith('~$'):
                     itemsList.remove(item)
         return itemsList
-
-    def removalProcedure(self)->None:
-        # start from replica and see what is different in source
-        2+2
                 
 if __name__ == "__main__":
     
