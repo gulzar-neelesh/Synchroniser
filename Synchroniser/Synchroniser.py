@@ -5,6 +5,7 @@ import shutil
 import os
 import copy # used for creating deep copy of lists only
 from typing import List
+from datetime import datetime
 
 class HashDigest(): # could easily add a new hasing method with out effecting the logic
     
@@ -118,12 +119,17 @@ class SourceToReplicaManagement():
                     #file exists check if it needs modification
                     replicaFileHash = HashDigest(itemReplicaPath).generateMD5Hash()
                     if sourceFileHash != replicaFileHash:
-                        shutil.copyfile(itemPath, itemReplicaPath) # duplicated needs to be updated                  
+                        shutil.copyfile(itemPath, itemReplicaPath) # duplicated needs to be updated
+                        date_time = datetime.now()
+                        msg = ' File ' + itemPath + ' replica modified on ' + str(date_time)
+                        logging.info(msg)
                 else:
                     #file does not exist, copy paste here
                     #print('i am here')
-                    logging.info('File duplicated \n')
                     shutil.copyfile(itemPath, itemReplicaPath)
+                    date_time = datetime.now()
+                    msg = ' File ' + itemPath + ' replica created on ' + str(date_time)
+                    logging.info(msg)
 
     def checkSource(self)  -> None:
         print('Monitoring...')
@@ -134,7 +140,7 @@ class SourceToReplicaManagement():
         
         itemsList = os.listdir(self.pathToUseSource)
         itemsList = self.ignoreTempFiles(itemsList)
-
+        itemPath = ''
         for item in itemsList:
             itemPath = os.path.join(self.pathToUseSource, str(item))
             if os.path.isdir(itemPath) == True:
@@ -146,7 +152,7 @@ class SourceToReplicaManagement():
                 self.fileLevelModification(item, itemPath, self.replicaPath)
         replicaItemsList = os.listdir(self.replicaPath)
         replicaItemsList = self.ignoreTempFiles(replicaItemsList)
-        self.removalProcedure(itemsList, replicaItemsList, self.replicaPath)
+        self.removalProcedure(itemsList, replicaItemsList, self.replicaPath, itemPath)
         
         self.globaDirList.append(copy.deepcopy(self.localDirList))
         self.localDirList.clear()
@@ -168,6 +174,9 @@ class SourceToReplicaManagement():
             else:
                 #the directory does not exists. create directory and copy all the items into it
                 os.mkdir(lReplicaPath)
+                date_time = datetime.now()
+                msg = ' Folder ' + thisDir + ' replica created on ' + str(date_time)
+                logging.info(msg)
                 self.dirItemsCheck(thisDir, lReplicaPath)
         if len(self.localDirList) > 0:
             self.globaDirList.append(copy.deepcopy(self.localDirList))
@@ -183,6 +192,7 @@ class SourceToReplicaManagement():
     def dirItemsCheck(self, thisDir, lReplicaPath) -> None:
         sourceItemsList = os.listdir(thisDir)
         sourceItemsList = self.ignoreTempFiles(sourceItemsList)
+        itemPath = ''
         for item in sourceItemsList: # check source directory items
             itemPath = os.path.join(thisDir, item) # create source dir items path
             if os.path.isfile(itemPath):
@@ -192,9 +202,9 @@ class SourceToReplicaManagement():
                 self.localDirList.append(itemPath)
         replicaItemsList = os.listdir(lReplicaPath)
         replicaItemsList = self.ignoreTempFiles(replicaItemsList)  
-        self.removalProcedure(sourceItemsList, replicaItemsList, lReplicaPath)
+        self.removalProcedure(sourceItemsList, replicaItemsList, lReplicaPath, itemPath)
                          
-    def removalProcedure(self, sourceItemsList, replicaItemsList, lReplicaPath) -> None:
+    def removalProcedure(self, sourceItemsList, replicaItemsList, lReplicaPath, itemPath) -> None:
         for replicaItem in replicaItemsList:
             lReplicaItemPath = os.path.join(lReplicaPath, replicaItem)
             if sourceItemsList.__contains__(replicaItem):
@@ -205,9 +215,15 @@ class SourceToReplicaManagement():
                 if os.path.isfile(lReplicaItemPath):
                     # remove the file
                     os.remove(lReplicaItemPath)
+                    date_time = datetime.now()
+                    msg = ' File ' + itemPath + ' replica deleted on ' + str(date_time)
+                    logging.info(msg)
                 else:
                     # remove the directory
                     shutil.rmtree(lReplicaItemPath, ignore_errors=True)
+                    date_time = datetime.now()
+                    msg = ' Folder ' + itemPath + ' replica deleted on ' + str(date_time)
+                    logging.info(msg)
     
     def ignoreTempFiles(self, itemsList)->List:
         for item in itemsList:
