@@ -76,7 +76,7 @@ class StartUp():
             logDist = input('Enter full path of Log file once again: \n')
         self.logPath = os.path.join(logDist, 'Logs.log')
         logging.basicConfig(filename=self.logPath, encoding='utf-8', level=logging.DEBUG)
-        print('Logs.txt created at the desired location')
+        print('Logs.log created at the desired location')
 
     def setParams(self) -> None:
         self.setSourcePath()
